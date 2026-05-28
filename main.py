@@ -28,6 +28,13 @@ tubo_3 = TuberiaAnimada(x_inicio=540, y_inicio=170, x_fin=660, y_fin=170)
 # CORRECCIÓN: Restaurado a 'capacidad_maxima' como estaba originalmente en tu código
 tanque_reserva = TanquePulmon(x=660, y=100, ancho=110, alto=180, capacidad_maxima=2000.0)
 
+
+# Debes importar el componente si estás usando archivos separados
+from componentes import AlertaOperador 
+
+# Posición X=230, Y=300 (Aparecerá en la zona central-derecha, cerca del llenadero)
+alerta_ingeniero = AlertaOperador(x=230, y=300)
+
 # Logística vial zonificada
 lista_camiones = []
 X_LLENADERO = 715  
@@ -226,6 +233,10 @@ while ejecutando:
         
         if estado_sistema == "OPERATIVO":
             agua_total_desalinizada += caudal_purificado
+
+    # Comprobar el nivel del tanque pulmón para disparar la animación
+    alerta_ingeniero.actualizar(tanque_reserva.nivel_actual)
+    alerta_ingeniero.dibujar(pantalla)
 
     pygame.display.flip()
     reloj.tick(60)

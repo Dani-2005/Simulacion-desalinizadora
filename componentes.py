@@ -275,3 +275,76 @@ class OsmosisInversa:
         
         pantalla.blit(txt_nom, (self.rect.x, self.rect.y - 20))
         pantalla.blit(txt_psi, (self.rect.x + 12, self.rect.centery - 6))
+
+
+
+
+class AlertaOperador:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.ancho = 360  # Lo ensanchamos un poquito para dar espacio a los 88px de la foto
+        self.alto = 110   # Le damos un poco más de altura para que quepa perfecta
+        
+        # Cargar tu imagen respetando sus dimensiones de 88x90
+        try:
+            self.avatar = pygame.image.load("ingeniero.png")
+            self.avatar = pygame.transform.scale(self.avatar, (88, 90))
+        except:
+            self.avatar = None
+            
+        self.fuente = pygame.font.SysFont("Arial", 12, bold=True)
+        self.frases = [
+            "¡Foso en cero! Detengan el llenadero de inmediato.",
+            "Sin presión en el buffer. ¡Parada de emergencia!",
+            "El tanque está seco. Reporten la anomalía al centro de control."
+        ]
+        self.frase_actual = self.frases[0]
+        self.activo = False
+
+    def actualizar(self, nivel_tanque):
+        if nivel_tanque <= 0:
+            if not self.activo:
+                import random
+                self.frase_actual = random.choice(self.frases)
+                self.activo = True
+        else:
+            self.activo = False
+
+    def dibujar(self, superficie):
+        if not self.activo:
+            return
+
+        # Fondo del recuadro industrial
+        pygame.draw.rect(superficie, (25, 25, 30), (self.x, self.y, self.ancho, self.alto), border_radius=8)
+        pygame.draw.rect(superficie, (220, 50, 50), (self.x, self.y, self.ancho, self.alto), width=2, border_radius=8)
+        
+        # Pestaña superior roja
+        pygame.draw.rect(superficie, (220, 50, 50), (self.x + 12, self.y - 12, 140, 15), border_radius=3)
+        lbl_tag = self.fuente.render("INGENIERO DE GUARDIA", True, (255, 255, 255))
+        superficie.blit(lbl_tag, (self.x + 18, self.y - 12))
+
+        # Dibujar tu imagen de 88x90 con un margen de 10px
+        if self.avatar:
+            superficie.blit(self.avatar, (self.x + 10, self.y + 10))
+        else:
+            pygame.draw.rect(superficie, (50, 55, 60), (self.x + 10, self.y + 10, 88, 90), border_radius=4)
+
+        # Ajuste del procesador de texto para que empiece después de los 88px de la foto
+        palabras = self.frase_actual.split(' ')
+        lineas = []
+        linea_actual = ""
+        for palabra in palabras:
+            if len(linea_actual + " " + palabra) < 28: # Bajamos el límite de caracteres por línea
+                linea_actual += " " + palabra
+            else:
+                lineas.append(linea_actual.strip())
+                linea_actual = palabra
+        lineas.append(linea_actual.strip())
+
+        # Imprimir el texto al lado derecho de la foto (X + 110 para que no se encima)
+        desplazamiento_y = 25
+        for linea in lineas:
+            txt_surface = self.fuente.render(linea, True, (240, 240, 245))
+            superficie.blit(txt_surface, (self.x + 110, self.y + desplazamiento_y))
+            desplazamiento_y += 16
