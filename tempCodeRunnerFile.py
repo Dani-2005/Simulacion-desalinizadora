@@ -1,9 +1,9 @@
 import pygame
 import sys
 import random
-import math  # Importamos math en el principal para la animación del rotor de la bomba
 from interfaz import Boton
 from componentes import CaptacionMar, TuberiaAnimada, TanquePulmon, FiltradoArena, OsmosisInversa, Camion, OperadorPlanta
+
 
 pygame.init()
 ANCHO, ALTO = 1000, 550  
@@ -23,7 +23,10 @@ bloque_filtrado = FiltradoArena(x=230, y=140, ancho=110, alto=60)
 bloque_osmosis = OsmosisInversa(x=430, y=140, ancho=110, alto=60)
 
 tubo_1 = TuberiaAnimada(x_inicio=140, y_inicio=170, x_fin=250, y_fin=170)
+# Tubo 2: Termina exactamente en la entrada real del sprite de ósmosis
 tubo_2 = TuberiaAnimada(x_inicio=320, y_inicio=170, x_fin=bloque_osmosis.entrada_x, y_fin=170)
+
+# Tubo 3: Empieza exactamente en la salida real del sprite de ósmosis hacia el tanque pulmón
 tubo_3 = TuberiaAnimada(x_inicio=bloque_osmosis.salida_x, y_inicio=170, x_fin=660, y_fin=170)
 
 tanque_reserva = TanquePulmon(x=660, y=100, ancho=110, alto=180, capacidad_maxima=2000.0)
@@ -65,37 +68,12 @@ deficit_hidrico_litros = 0.0
 
 tanque_en_recuperacion = False
 
-# Variable global para controlar el ángulo de giro del rotor de la bomba estilo juego
-angulo_bomba_rotor = 0.0
 
-# Coordenadas específicas de vegetación solicitadas
-zonas_verdes = [
-    # NUEVO: Dos árboles arriba de la carretera horizontal (Y_LLENADERO = 340)
-    {"x": 450, "y": 315, "tipo": "arbol", "radio": 13},
-    {"x": 600, "y": 315, "tipo": "arbol", "radio": 14},
-
-    # Abajo de la salmuera / descarga costera
-    {"x": 45,  "y": 380, "tipo": "arbol", "radio": 14},
-    {"x": 80,  "y": 385, "tipo": "arbusto", "radio": 8},
-    {"x": 115, "y": 382, "tipo": "arbol", "radio": 12},
-    # Parte de arriba de la planta (Fondo norte)
-    {"x": 260, "y": 80,  "tipo": "arbol", "radio": 13},
-    {"x": 350, "y": 82,  "tipo": "arbol", "radio": 14},
-    {"x": 470, "y": 78,  "tipo": "arbol", "radio": 12},
-    {"x": 570, "y": 78,  "tipo": "arbol", "radio": 13},
-    # Al lado de la subestación (Derecha)
-    {"x": 805, "y": 95,  "tipo": "arbol", "radio": 14},
-    {"x": 925, "y": 90,  "tipo": "arbol", "radio": 13},
-    {"x": 950, "y": 105, "tipo": "arbusto", "radio": 7}
-]
-
-# =========================================================================
-# --- CALIBRACIÓN DE LÍMITES PARA OPERADORES (ZONAS RESPETANDO ESTRUCTURAS) ---
-# =========================================================================
+# Creación del equipo de operadores de planta (3 trabajadores en diferentes zonas)
 lista_operadores = [
-    OperadorPlanta(x_inicio=215, y_piso=215, x_limite_izq=210, x_limite_der=225),  
-    OperadorPlanta(x_inicio=360, y_piso=215, x_limite_izq=345, x_limite_der=425),  
-    OperadorPlanta(x_inicio=560, y_piso=215, x_limite_izq=545, x_limite_der=650)   
+    OperadorPlanta(x_inicio=250, y_piso=215, x_limite_izq=220, x_limite_der=330),  # Zona de Filtrado
+    OperadorPlanta(x_inicio=450, y_piso=215, x_limite_izq=420, x_limite_der=550),  # Zona de Ósmosis
+    OperadorPlanta(x_inicio=350, y_piso=215, x_limite_izq=230, x_limite_der=540)   # Supervisor de pasarela larga
 ]
 
 ejecutando = True
@@ -119,14 +97,7 @@ while ejecutando:
     tubo_2.actualizar("OPERATIVO" if caudal_filtrado > 0 else "PARADO")
     tubo_3.actualizar("OPERATIVO" if caudal_purificado > 0 else "PARADO")
 
-    # Incremento de animación de giro del rotor según estado
-    if estado_sistema == "OPERATIVO":
-        angulo_bomba_rotor += 0.25
-    elif estado_sistema == "MANTENIMIENTO_FILTROS":
-        angulo_bomba_rotor += 0.12
-    elif estado_sistema == "FALLA_CAPTACION":
-        angulo_bomba_rotor += 0.04
-
+    # Actualizar movimiento del personal de guardia
     for operador in lista_operadores:
         operador.actualizar(estado_sistema)
 
@@ -164,10 +135,12 @@ while ejecutando:
     # =========================================================================
     pantalla.fill((30, 30, 32))  
 
+    # Marcos e infraestructura de la planta
     pygame.draw.rect(pantalla, (40, 43, 48), (20, 60, ANCHO - 40, 340), border_radius=10)
     pygame.draw.rect(pantalla, (80, 85, 90), (210, 60, ANCHO - 230, 340))
     pygame.draw.rect(pantalla, (235, 210, 165), (150, 60, 60, 340))
 
+    # Tubos estructurales de fondo
     x_tubo_h, y_tubo_h = 60, 235
     ancho_tubo_h, alto_tubo_h = 432, 12
     pygame.draw.rect(pantalla, (25, 27, 30), (x_tubo_h, y_tubo_h + alto_tubo_h, ancho_tubo_h, 3))
@@ -190,6 +163,7 @@ while ejecutando:
     pygame.draw.circle(pantalla, (180, 220, 255), (58, 241), 8)
     pygame.draw.circle(pantalla, (255, 255, 255), (54, 241), 5)
 
+    # Subestación eléctrica
     lbl_pwr = fuente_interfaz.render("SUB-STATION", True, (180, 180, 185))
     pantalla.blit(lbl_pwr, (838, 62))
     pygame.draw.rect(pantalla, (60, 65, 70), (840, 78, 65, 47), border_radius=4)
@@ -198,7 +172,7 @@ while ejecutando:
     pygame.draw.polygon(pantalla, (240, 200, 40), [(892, 86), (885, 99), (892, 99), (887, 112), (898, 94), (891, 94)])
 
     # =========================================================================
-    # --- CAPA 2: ASFALTO Y LÍNEAS DE CARRETERA ---
+    # --- CAPA 2: ASFALTO Y LÍNEAS DE CARRETERA (Con máscara de recorte) ---
     # =========================================================================
     limite_cuadro_negro = pygame.Rect(20, 60, ANCHO - 40, 340)
     pantalla.set_clip(limite_cuadro_negro) 
@@ -209,22 +183,9 @@ while ejecutando:
     pygame.draw.line(pantalla, (200, 160, 40), (247, Y_LLENADERO + 12), (980, Y_LLENADERO + 12), width=1)
     pygame.draw.line(pantalla, (200, 160, 40), (247, Y_LLENADERO + 12), (247, 550), width=1)
 
-    # --- NUEVO: RENDERIZADO DE LAS ZONAS VERDES SOLICITADAS ---
-    for veg in zonas_verdes:
-        cx, cy, r = veg["x"], veg["y"], veg["radio"]
-        if veg["tipo"] == "arbol":
-            pygame.draw.ellipse(pantalla, (55, 60, 62), (cx - r, cy + 2, r * 2, 8))
-            pygame.draw.rect(pantalla, (110, 70, 45), (cx - 3, cy, 6, 16))
-            pygame.draw.circle(pantalla, (34, 112, 63), (cx, cy - 4), r)
-            pygame.draw.circle(pantalla, (46, 139, 87), (cx - 2, cy - 6), int(r * 0.85))
-            pygame.draw.circle(pantalla, (20, 45, 30), (cx, cy - 4), r, width=1)
-        elif veg["tipo"] == "arbusto":
-            pygame.draw.circle(pantalla, (34, 112, 63), (cx, cy), r)
-            pygame.draw.circle(pantalla, (46, 139, 87), (cx, cy), r - 2)
-            pygame.draw.circle(pantalla, (20, 45, 30), (cx, cy), r, width=1)
-
     pantalla.set_clip(None) 
 
+    # Grúa de llenado física
     pygame.draw.line(pantalla, (180, 180, 185), (X_LLENADERO + 15, 280), (X_LLENADERO + 15, Y_LLENADERO), width=4)
     pygame.draw.circle(pantalla, (255, 215, 0), (X_LLENADERO + 15, Y_LLENADERO), 5)
 
@@ -235,43 +196,7 @@ while ejecutando:
     tubo_2.dibujar(pantalla)
     tubo_3.dibujar(pantalla)
     
-    # 1. Dibujamos el mar con sus parches pixelados de fondo
     mar_captacion.dibujar(pantalla, estado_sistema, fuente_interfaz)
-    
-    # 2. NUEVO: RENDERIZADO DEL SPRITE DE LA BOMBA SOBRE EL MAR ESTILO JUEGO 2D
-    # Ubicación calibrada para alinearse con el foso (x=20, y=60) y empalmar con tubo_1 (y=170)
-    bomba_x, bomba_y = 105, 153
-    bomba_w, bomba_h = 32, 34
-    
-    # Paleta de color de la carcasa según la energía
-    col_bomba_base = (70, 75, 82) if estado_sistema != "FALLA_ELECTRICA" else (48, 50, 54)
-    col_bomba_borde = (30, 32, 35)
-    
-    # Cuerpo/Chasis base de la bomba (Geometría compacta de juego retro)
-    pygame.draw.rect(pantalla, col_bomba_base, (bomba_x, bomba_y, bomba_w, bomba_h), border_radius=4)
-    pygame.draw.rect(pantalla, col_bomba_borde, (bomba_x, bomba_y, bomba_w, bomba_h), width=2, border_radius=4)
-    
-    # Rejilla de succión / Filtro mecánico inferior (Líneas oscuras en la base de la bomba)
-    for rx in range(bomba_x + 4, bomba_x + bomba_w - 2, 5):
-        pygame.draw.rect(pantalla, (25, 25, 28), (rx, bomba_y + bomba_h - 6, 3, 4))
-        
-    # Núcleo del motor / Rotor circular interno
-    centro_rx, centro_ry = bomba_x + (bomba_w // 2), bomba_y + 13
-    pygame.draw.circle(pantalla, (38, 40, 44), (centro_rx, centro_ry), 8)
-    
-    # Aspas animadas que giran usando trigonometría sobre la variable angulo_bomba_rotor
-    for i in range(4):
-        f_aspa = angulo_bomba_rotor + (i * (math.pi / 2))
-        ax = centro_rx + int(math.cos(f_aspa) * 6)
-        ay = centro_ry + int(math.sin(f_aspa) * 6)
-        col_aspa = (100, 210, 255) if estado_sistema == "OPERATIVO" else (220, 70, 70) if estado_sistema == "FALLA_CAPTACION" else (90, 95, 100)
-        pygame.draw.line(pantalla, col_aspa, (centro_rx, centro_ry), (ax, ay), width=2)
-        
-    # LED indicador físico superficial estilo arcade
-    col_bomba_led = (40, 255, 90) if estado_sistema == "OPERATIVO" else (255, 150, 0) if estado_sistema == "MANTENIMIENTO_FILTROS" else (255, 30, 30)
-    pygame.draw.circle(pantalla, col_bomba_led, (bomba_x + 6, bomba_y + 6), 3)
-
-    # 3. Dibujamos el resto de bloques de proceso
     bloque_filtrado.dibujar(pantalla, estado_sistema, fuente_interfaz)
     bloque_osmosis.dibujar(pantalla, estado_sistema, fuente_interfaz)
     tanque_reserva.dibujar(pantalla, fuente_interfaz)
@@ -283,6 +208,7 @@ while ejecutando:
     pygame.draw.circle(pantalla, (105, 108, 112), (147, 300), 10)
     pygame.draw.circle(pantalla, (85, 88, 90), (153, 312), 6)
 
+    # Dibujar personal caminando sobre las plataformas
     for operador in lista_operadores:
         operador.dibujar(pantalla)
 
@@ -295,7 +221,7 @@ while ejecutando:
     pantalla.blit(txt_cola, (X_LLENADERO - 20, Y_LLENADERO + 45))
 
     # =========================================================================
-    # --- CAPA 4: INTERFAZ DE USUARIO, PANEL DE BOTONES Y ALERTAS ---
+    # --- CAPA 4: INTERFAZ DE USUARIO, PANEL DE BOTONES Y ALERTAS (SUPERIOR) ---
     # =========================================================================
     pygame.draw.rect(pantalla, (20, 24, 30), (0, 0, ANCHO, 45))
     texto_titulo = fuente_titulo.render("AquaLogic: DESALINIZADORA PUNTO FIJO SIMULATION", True, (255, 255, 255))
@@ -305,8 +231,8 @@ while ejecutando:
     texto_panel = fuente_interfaz.render("PANEL DE CONTROL DE USUARIO (EVENTOS MANUALES)", True, (150, 150, 150))
     pantalla.blit(texto_panel, (35, 446))
 
-    for brillo in botones.values():
-        brillo.dibujar(pantalla, fuente_interfaz)
+    for boton in botones.values():
+        boton.dibujar(pantalla, fuente_interfaz)
 
     if estado_sistema == "OPERATIVO":
         col_alarma, msg_alarma = (50, 220, 100), "SISTEMA ESTABLE - PRODUCCIÓN CONTINUA"
