@@ -438,6 +438,11 @@ class OsmosisInversa:
         pantalla.blit(txt_psi, (self.rect.x + 12, self.rect.bottom + 5))
 
 
+import pygame
+import sys
+import random
+import math
+
 class AlertaOperador:
     def __init__(self, x, y):
         self.x = x
@@ -475,6 +480,11 @@ class AlertaOperador:
             "Planta sin energía eléctrica. Sistemas de ósmosis detenidos.",
             "Corte de suministro eléctrico crítico. Monitoreando estatus del buffer."
         ]
+        self.frases_valvula = [
+            "¡Corte de distribución! Alguien cerró la llave general.",
+            "Presión bloqueada en la salida. Abran la válvula de inmediato.",
+            "Alerta en la línea troncal. Suministro hacia los camiones interrumpido."
+        ]
         
         self.frase_actual = ""
         self.activo = False
@@ -490,21 +500,28 @@ class AlertaOperador:
                 self.activo = True
                 self.causa_actual = "APAGON"
                 
-        # 2. PRIORIDAD ALTA: El tanque se vació por completo
+        # 2. PRIORIDAD CRÍTICA COMPARTIDA: Válvula de Distribución Cerrada
+        elif estado_sistema == "VALVULA_CERRADA":
+            if not self.activo or self.causa_actual != "VALVULA":
+                self.frase_actual = random.choice(self.frases_valvula)
+                self.activo = True
+                self.causa_actual = "VALVULA"
+
+        # 3. PRIORIDAD ALTA: El tanque se vació por completo
         elif nivel_tanque <= 0:
             if not self.activo or self.causa_actual != "TANQUE_SECO":
                 self.frase_actual = random.choice(self.frases_tanque_seco)
                 self.activo = True
                 self.causa_actual = "TANQUE_SECO"
                 
-        # 3. PRIORIDAD MEDIA: Falla o trigger manual de captación
+        # 4. PRIORIDAD MEDIA: Falla o trigger manual de captación
         elif estado_sistema == "FALLA_CAPTACION":
             if not self.activo or self.causa_actual != "CAPTACION":
                 self.frase_actual = random.choice(self.frases_captacion)
                 self.activo = True
                 self.causa_actual = "CAPTACION"
                 
-        # 4. PRIORIDAD BAJA: Filtros al máximo de saturación o en mantenimiento
+        # 5. PRIORIDAD BAJA: Filtros al máximo de saturación o en mantenimiento
         elif estado_sistema == "MANTENIMIENTO_FILTROS" or filtros_saturados:
             if not self.activo or self.causa_actual != "FILTROS":
                 self.frase_actual = random.choice(self.frases_filtros)
@@ -555,9 +572,6 @@ class AlertaOperador:
             desplazamiento_y += 16
 
 
-
-# --- DENTRO DE TU ARCHIVO componentes.py ---
-
 class OperadorPlanta:
     def __init__(self, x_inicio, y_piso, x_limite_izq, x_limite_der):
         self.x = x_inicio
@@ -602,3 +616,6 @@ class OperadorPlanta:
         # Botas de seguridad
         pygame.draw.rect(superficie, (20, 20, 20), (int(self.x), int(self.y) + self.alto, 3, 3))
         pygame.draw.rect(superficie, (20, 20, 20), (int(self.x) + self.ancho - 3, int(self.y) + self.alto, 3, 3))
+
+
+
