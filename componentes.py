@@ -254,7 +254,7 @@ class Camion:
             
             # CORRECCIÓN: Sincronizado con el nuevo inicio de la carretera (X = 230)
             if self.x <= 230:
-                self.x = 210 # Ajuste para que baje centrado en el canal vertical
+                self.x = 218 # Ajuste para que baje centrado en el canal vertical
                 self.estado = "DESVIANDO"
 
         elif self.estado == "DESVIANDO":
