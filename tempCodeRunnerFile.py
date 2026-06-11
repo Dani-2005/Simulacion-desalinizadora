@@ -95,7 +95,6 @@ zonas_verdes = [
 # =========================================================================
 Y_PISO_OPERADORES = 215  # Definimos la constante de altura para usarla de forma limpia
 lista_operadores = [
-    # Se eliminó el operador de captación (cerca del agua)
     OperadorPlanta(x_inicio=360, y_piso=Y_PISO_OPERADORES, x_limite_izq=300, x_limite_der=440),  # Límite ajustado para no invadir la salmuera
     OperadorPlanta(x_inicio=560, y_piso=Y_PISO_OPERADORES, x_limite_izq=545, x_limite_der=650)   
 ]
@@ -104,10 +103,11 @@ lista_operadores = [
 # --- CONFIGURACIÓN DEL OPERADOR LIBRE EXTERIOR (WASD) ---
 # =========================================================================
 op_libre_x = 300
-op_libre_y = 350
+op_libre_y = 300  # Ajustado ligeramente hacia arriba para iniciar fuera de la zona bloqueada
 op_libre_vel = 3
 op_libre_dir = 1  
 
+# Se agregaron los límites del entorno y la tubería de salmuera para el supervisor
 obstaculos = [
     pygame.Rect(0, 0, 1000, 60),               
     pygame.Rect(0, 400, 1000, 150),            
@@ -117,7 +117,12 @@ obstaculos = [
     pygame.Rect(660, 100, 110, 180),           
     pygame.Rect(140, 165, 520, 20),            
     pygame.Rect(840, 78, 65, 47),              
-    pygame.Rect(X_LLENADERO - 10, 280, 50, 95)  
+    pygame.Rect(X_LLENADERO - 10, 280, 50, 95),
+    pygame.Rect(230, Y_LLENADERO - 5, 750, 250), # <<-- BLOQUEO ABSOLUTO DE CARRETERA PARA EL SUPERVISOR
+    
+    # === NUEVO OBSTÁCULO: TUBERÍA DE SALMUERA DE DESCARGA COSTERA ===
+    # Bloquea el paso horizontal desde x=60 hasta x=492 en la altura y=235
+    pygame.Rect(60, 235, 432, 14)
 ]
 
 X_VALVULA = 540
@@ -192,13 +197,6 @@ while ejecutando:
                 else:
                     estado_sistema = "VALVULA_CERRADA"
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_e and cerca_de_valvula:
-                if estado_sistema == "VALVULA_CERRADA":
-                    estado_sistema = "OPERATIVO"
-                else:
-                    estado_sistema = "VALVULA_CERRADA"
-
     caudal_captado = mar_captacion.actualizar(estado_sistema)
     caudal_filtrado = bloque_filtrado.actualizar(caudal_captado, estado_sistema)
     caudal_purificado = bloque_osmosis.actualizar(caudal_filtrado, estado_sistema)
@@ -206,9 +204,26 @@ while ejecutando:
     caudal_hacia_tanque = 0 if estado_sistema == "VALVULA_CERRADA" else caudal_purificado
     tanque_reserva.actualizar(caudal_hacia_tanque, estado_sistema)
     
-    tubo_1.actualizar("OPERATIVO" if caudal_captado > 0 else "PARADO")
-    tubo_2.actualizar("OPERATIVO" if caudal_filtrado > 0 else "PARADO")
-    tubo_3.actualizar("OPERATIVO" if caudal_hacia_tanque > 0 else "PARADO")
+    # === CONTROL DE FLUJO ANIMADO EN TUBERÍAS SEGÚN ESTADO DEL SISTEMA ===
+    if estado_sistema == "OPERATIVO":
+        tubo_1.actualizar("OPERATIVO" if caudal_captado > 0 else "PARADO")
+        tubo_2.actualizar("OPERATIVO" if caudal_filtrado > 0 else "PARADO")
+        tubo_3.actualizar("OPERATIVO" if caudal_hacia_tanque > 0 else "PARADO")
+        angulo_bomba_rotor += 0.25  # El rotor gira a velocidad nominal
+    else:
+        # Si el sistema está en cualquier estado de falla, se congela el flujo de inmediato
+        tubo_1.actualizar("PARADO")
+        tubo_2.actualizar("PARADO")
+        tubo_3.actualizar("PARADO")
+        
+        # Opcional: Ralentizar o detener el rotor según la falla específica para hacer match visual
+        if estado_sistema == "MANTENIMIENTO_FILTROS":
+            angulo_bomba_rotor += 0.12
+        elif estado_sistema == "FALLA_CAPTACION":
+            angulo_bomba_rotor += 0.04
+        else:
+            # FALLA_ELECTRICA o VALVULA_CERRADA detienen el rotor por completo
+            angulo_bomba_rotor += 0.0
 
     if estado_sistema == "OPERATIVO":
         angulo_bomba_rotor += 0.25
@@ -237,20 +252,10 @@ while ejecutando:
 
     camiones_en_espera = 0
     distancia_entre_camiones = 80
-    DISTANCIA_FRENADO = 65  # Rango de proximidad en píxeles para detectar al supervisor
 
     for indice, camion in enumerate(lista_camiones):
-        # Evaluar si el supervisor está obstruyendo directamente la trayectoria de este camión
-        bloqueado_por_supervisor = False
-        if abs(op_libre_y - camion.y) < 25 and (camion.x - op_libre_x) > 0 and (camion.x - op_libre_x) < DISTANCIA_FRENADO:
-            bloqueado_por_supervisor = True
-
         if camion.estado in ["SALIENDO", "DESVIANDO"]:
-            if bloqueado_por_supervisor:
-                # Si está saliendo pero el supervisor bloquea el camino, congelamos su avance
-                pass 
-            else:
-                camion.actualizar(0, False, tanque_reserva)
+            camion.actualizar(0, False, tanque_reserva)
         else:
             # Determinamos la meta ideal en la fila
             x_meta_fila = X_LLENADERO + (camiones_en_espera * distancia_entre_camiones)
@@ -264,12 +269,12 @@ while ejecutando:
                 for idx_ant in range(indice - 1, -1, -1):
                     camion_delante = lista_camiones[idx_ant]
                     if camion_delante.estado not in ["SALIENDO", "DESVIANDO"]:
-                        # Si el camión de adelante está a menos de la distancia permitida (80px), obligamos a frenar
-                        if 0 < (camion.x - camion_delante.x) < distancia_entre_camiones:
+                        proximidad_actual = camion.x - camion_delante.x
+                        if 0 < proximidad_actual < distancia_entre_camiones:
                             bloqueado_por_camion_delante = True
                         break
 
-            if bloqueado_por_supervisor or bloqueado_por_camion_delante:
+            if bloqueado_por_camion_delante:
                 # Forzar su destino a su propia coordenada 'x' actual para detenerlo por completo y evitar que se encime
                 camion.actualizar(camion.x, False, tanque_reserva)
             else:
@@ -340,10 +345,6 @@ while ejecutando:
             pygame.draw.circle(pantalla, (34, 112, 63), (cx, cy - 4), r)
             pygame.draw.circle(pantalla, (46, 139, 87), (cx - 2, cy - 6), int(r * 0.85))
             pygame.draw.circle(pantalla, (20, 45, 30), (cx, cy - 4), r, width=1)
-        elif veg["tipo"] == "arbusto":
-            pygame.draw.circle(pantalla, (34, 112, 63), (cx, cy), r)
-            pygame.draw.circle(pantalla, (46, 139, 87), (cx, cy), r - 2)
-            pygame.draw.circle(pantalla, (20, 45, 30), (cx, cy), r, width=1)
 
     pantalla.set_clip(None) 
 
@@ -403,8 +404,7 @@ while ejecutando:
     # Renderizado de operadores de pasarela fijos
     for i, operador in enumerate(lista_operadores):
         operador.dibujar(pantalla)
-        if i == 0:  # Ahora el operador del medio es el índice 0 tras eliminar el primero
-            # Modificamos la etiqueta para reflejar que volvió a ser automático
+        if i == 0:  
             txt_p1 = fuente_interfaz.render("OPERADOR 1 (AUTO)", True, (100, 200, 255))
             pantalla.blit(txt_p1, (operador.x - 30, Y_PISO_OPERADORES - 42))
 
@@ -577,6 +577,6 @@ if historial_tiempo:
     print("📊 Desplegando gráficos analíticos profesionales en pantalla...")
     plt.show()
 else:
-    print("⚠️ Datos insuficientes para estructurar los gráficos (Simulación cerrada prematuramente).")
+    print("⚠️ Datos insuficientes para organizar los gráficos (Simulación cerrada prematuramente).")
 
 sys.exit()

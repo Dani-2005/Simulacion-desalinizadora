@@ -122,11 +122,34 @@ obstaculos = [
     
     # === NUEVO OBSTÁCULO: TUBERÍA DE SALMUERA DE DESCARGA COSTERA ===
     # Bloquea el paso horizontal desde x=60 hasta x=492 en la altura y=235
-    pygame.Rect(60, 235, 432, 14)
+    pygame.Rect(60, 235, 432, 14),
+
+    pygame.Rect(500, 290, 80, 25), # Obstáculo para "¡NO PASAR!"
+    pygame.Rect(820, 230, 80, 25)  # Obstáculo para "ZONA RIESGO"
 ]
 
 X_VALVULA = 540
 Y_VALVULA = 235
+
+
+
+def dibujar_cartel(pantalla, x, y, texto):
+    # 1. Soportes más cortos y delgados
+    color_poste = (101, 67, 33)
+    pygame.draw.rect(pantalla, color_poste, (x + 8, y + 15, 6, 25))   # Poste izquierdo
+    pygame.draw.rect(pantalla, color_poste, (x + 66, y + 15, 6, 25))  # Poste derecho
+
+    # 2. Cartel más pequeño (80x25 en vez de 120x40)
+    pygame.draw.rect(pantalla, (255, 230, 0), (x, y, 80, 25), border_radius=3)
+    pygame.draw.rect(pantalla, (40, 40, 40), (x, y, 80, 25), width=2, border_radius=3)
+    
+    # 3. Texto (ajustado al nuevo tamaño)
+    # Usamos una fuente un poco más pequeña si es necesario, o la misma
+    lbl = fuente_interfaz.render(texto, True, (0, 0, 0))
+    rect_txt = lbl.get_rect(center=(x + 40, y + 13))
+    pantalla.blit(lbl, rect_txt)
+
+
 
 ejecutando = True
 while ejecutando:
@@ -205,32 +228,27 @@ while ejecutando:
     tanque_reserva.actualizar(caudal_hacia_tanque, estado_sistema)
     
     # === CONTROL DE FLUJO ANIMADO EN TUBERÍAS SEGÚN ESTADO DEL SISTEMA ===
-    if estado_sistema == "OPERATIVO":
-        tubo_1.actualizar("OPERATIVO" if caudal_captado > 0 else "PARADO")
-        tubo_2.actualizar("OPERATIVO" if caudal_filtrado > 0 else "PARADO")
-        tubo_3.actualizar("OPERATIVO" if caudal_hacia_tanque > 0 else "PARADO")
-        angulo_bomba_rotor += 0.25  # El rotor gira a velocidad nominal
-    else:
-        # Si el sistema está en cualquier estado de falla, se congela el flujo de inmediato
+    # Reemplaza tu bloque actual de animación de tubos por este:
+
+    esta_saturado = bloque_filtrado.saturacion >= 100
+
+    if esta_saturado:
         tubo_1.actualizar("PARADO")
         tubo_2.actualizar("PARADO")
         tubo_3.actualizar("PARADO")
-        
-        # Opcional: Ralentizar o detener el rotor según la falla específica para hacer match visual
-        if estado_sistema == "MANTENIMIENTO_FILTROS":
+    else:
+        # Aquí va tu lógica normal de animación (la que ya tienes)
+        estado_animacion = "OPERATIVO" if estado_sistema == "OPERATIVO" else "PARADO"
+        tubo_1.actualizar(estado_animacion if caudal_captado > 0 else "PARADO")
+        tubo_2.actualizar(estado_animacion if caudal_filtrado > 0 else "PARADO")
+        tubo_3.actualizar(estado_animacion if caudal_hacia_tanque > 0 else "PARADO")
+
+        if estado_sistema == "OPERATIVO":
+            angulo_bomba_rotor += 0.25
+        elif estado_sistema == "MANTENIMIENTO_FILTROS":
             angulo_bomba_rotor += 0.12
         elif estado_sistema == "FALLA_CAPTACION":
             angulo_bomba_rotor += 0.04
-        else:
-            # FALLA_ELECTRICA o VALVULA_CERRADA detienen el rotor por completo
-            angulo_bomba_rotor += 0.0
-
-    if estado_sistema == "OPERATIVO":
-        angulo_bomba_rotor += 0.25
-    elif estado_sistema == "MANTENIMIENTO_FILTROS":
-        angulo_bomba_rotor += 0.12
-    elif estado_sistema == "FALLA_CAPTACION":
-        angulo_bomba_rotor += 0.04
 
     # Todos los operadores de pasarela actualizan su comportamiento automático
     for operador in lista_operadores:
@@ -436,6 +454,14 @@ while ejecutando:
 
     txt_cola = fuente_interfaz.render(f"Camiones en Fila (Demanda): {camiones_en_espera}", True, (200, 220, 240))
     pantalla.blit(txt_cola, (X_LLENADERO - 20, Y_LLENADERO + 45))
+
+
+    # Ejemplo: Colocar carteles en zonas estratégicas
+    dibujar_cartel(pantalla, 500, 280, "¡NO PASAR!")
+    dibujar_cartel(pantalla, 820, 230, "ZONA RIESGO")
+
+
+
 
     # =========================================================================
     # --- CAPA 4: INTERFAZ DE USUARIO, PANEL DE BOTONES Y ALERTAS ---
